@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Gastos Compartidos</title>
+  <script src="https://unpkg.com/lucide@latest"></script>
+  <script src="https://cdn.tailwindcss.com"></script>
+</head>
+<body class="bg-gray-100 p-4 text-sm">
+  <div class="max-w-xl mx-auto bg-white rounded-xl shadow-md p-4 space-y-4">
+    <h1 class="text-xl font-bold text-center">Gastos Compartidos</h1>
+    <div class="grid grid-cols-1 sm:grid-cols-2 gap-2">
+      <input id="nombre" placeholder="Quién pagó" class="border rounded p-2" />
+      <input id="monto" type="number" placeholder="Monto $" class="border rounded p-2" />
+      <input id="descripcion" placeholder="Descripción" class="border rounded p-2 sm:col-span-2" />
+      <select id="categoria" class="border rounded p-2 sm:col-span-2">
+        <option value="hipoteca">Hipoteca</option>
+        <option value="alimentos">Alimentos</option>
+        <option value="auto">Auto</option>
+        <option value="generales">Gastos generales</option>
+      </select>
+      <button onclick="agregarGasto()" class="bg-blue-500 text-white py-2 rounded hover:bg-blue-600 sm:col-span-2">Agregar gasto</button>
+    </div>
+
+    <h2 class="text-lg font-semibold mt-4">Listado de gastos</h2>
+    <div class="overflow-auto max-h-64">
+      <table class="w-full text-left border-t">
+        <thead class="bg-gray-200 sticky top-0">
+          <tr>
+            <th class="p-1">Quién</th>
+            <th class="p-1">Monto</th>
+            <th class="p-1">Descripción</th>
+            <th class="p-1">Categoría</th>
+            <th class="p-1">🗑️</th>
+          </tr>
+        </thead>
+        <tbody id="tablaGastos"></tbody>
+      </table>
+    </div>
+
+    <div class="text-center font-semibold mt-4" id="saldo"></div>
+    <div class="flex justify-between mt-4">
+      <button onclick="exportarCSV()" class="bg-green-600 text-white px-4 py-2 rounded hover:bg-green-700">Exportar CSV</button>
+      <button onclick="resetear()" class="bg-red-600 text-white px-4 py-2 rounded hover:bg-red-700">Saldar y reiniciar</button>
+    </div>
+  </div>
+
+  <script>
+    const gastos = [];
+
+    const iconos = {
+      hipoteca: "home",
+      alimentos: "shopping-cart",
+      auto: "car",
+      generales: "activity"
+    };
+
+    function agregarGasto() {
+      const nombre = document.getElementById('nombre').value.trim();
+      const monto = parseFloat(document.getElementById('monto').value);
+      const descripcion = document.getElementById('descripcion').value.trim();
+      const categoria = document.getElementById('categoria').value;
+
+      if (!nombre || isNaN(monto)) return alert("Completa nombre y monto");
+
+      gastos.push({ nombre, monto, descripcion, categoria });
+      document.getElementById('nombre').value = "";
+      document.getElementById('monto').value = "";
+      document.getElementById('descripcion').value = "";
+
+      renderizar();
+    }
+
+    function renderizar() {
+      const tabla = document.getElementById('tablaGastos');
+      tabla.innerHTML = "";
+
+      gastos.forEach((gasto, i) => {
+        const fila = document.createElement("tr");
+        fila.innerHTML = `
+          <td class="border-t p-1">${gasto.nombre}</td>
+          <td class="border-t p-1">$${gasto.monto.toFixed(2)}</td>
+          <td class="border-t p-1">${gasto.descripcion}</td>
+          <td class="border-t p-1 flex items-center gap-1">
+            <i data-lucide="${iconos[gasto.categoria]}" class="w-4 h-4"></i>
+            ${gasto.categoria}
+          </td>
+          <td class="border-t p-1 text-center">
+            <button onclick="eliminarGasto(${i})" class="text-red-600">✖️</button>
+          </td>
+        `;
+        tabla.appendChild(fila);
+      });
+
+      lucide.createIcons();
+
+      calcularSaldos();
+    }
+
+    function eliminarGasto(index) {
+      gastos.splice(index, 1);
+      renderizar();
+    }
+
+    function calcularSaldos() {
+      const personas = {};
+      gastos.forEach(g => {
+        personas[g.nombre] = (personas[g.nombre] || 0) + g.monto;
+      });
+
+      const nombres = Object.keys(personas);
+      if (nombres.length !== 2) {
+        document.getElementById('saldo').innerText = "Esperando a que ingresen gastos ambas personas...";
+        return;
+      }
+
+      const [a, b] = nombres;
+      const total = personas[a] + personas[b];
+      const mitad = total / 2;
+      const deuda = Math.abs(personas[a] - mitad).toFixed(2);
+      const mensaje = personas[a] > personas[b]
+        ? `${b} le debe $${deuda} a ${a}`
+        : `${a} le debe $${deuda} a ${b}`;
+
+      document.getElementById('saldo').innerText = mensaje;
+    }
+
+    function exportarCSV() {
+      const encabezado = "Nombre,Monto,Descripción,Categoría\n";
+      const filas = gastos.map(g => `${g.nombre},${g.monto},${g.descripcion},${g.categoria}`).join("\n");
+      const blob = new Blob([encabezado + filas], { type: "text/csv" });
+      const url = URL.createObjectURL(blob);
+      const a = document.createElement("a");
+      a.href = url;
+      a.download = "gastos.csv";
+      a.click();
+      URL.revokeObjectURL(url);
+    }
+
+    function resetear() {
+      if (confirm("¿Estás seguro de que querés saldar y reiniciar los gastos?")) {
+        gastos.length = 0;
+        renderizar();
+      }
+    }
+  </script>
+</body>
+</html>
